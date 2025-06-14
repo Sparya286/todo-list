@@ -1,56 +1,154 @@
 # todo-list
 A simple yet powerful desktop To-Do List application built using Java.  It allows users to manage tasks efficiently with features like sorting tasks.  The project demonstrates OOP concepts such  as inheritance and encapsulation, along with  exception handling and multithreading for better performance and user experience.
 
-####Functionality of the To-Do List Program
-1. Add Task
-Users can type a task in the text field and click "Add Task".
 
-The task is added to the list and shown with a [ ] symbol (not completed).
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 
-2. View Tasks
-Tasks appear in a scrollable list (JList), each with a checkbox-like symbol:
+// Base class - Encapsulates task data
+class Task {
+    private String name;
+    private boolean completed;
 
-[ ] Task Name → incomplete
+    public Task(String name) {
+        this.name = name;
+        this.completed = false;
+    }
 
-[✔ ] Task Name → completed
+    public String getName() {
+        return name;
+    }
 
-3. Mark as Completed
-Select a task and click "Mark as Completed".
+    public boolean isCompleted() {
+        return completed;
+    }
 
-The task status changes, visually updating to [✔ ].
+    public void markCompleted() {
+        this.completed = true;
+    }
 
-4. Delete Task
-Select a task and click "Delete Task" to remove it from the list.
+    @Override
+    public String toString() {
+        return (completed ? "[✔ ] " : "[ ] ") + name;
+    }
+}
 
-5. Sort Tasks
-Clicking "Sort Tasks" organizes the list:
+// Subclass (Inheritance example)
+class CompletedTask extends Task {
+    public CompletedTask(String name) {
+        super(name);
+        markCompleted(); // Inherited method
+    }
+}
 
-Incomplete tasks first
+// GUI Application
+public class TaskManagerGUI extends JFrame {
+    private DefaultListModel<Task> taskListModel = new DefaultListModel<>();
+    private JList<Task> taskJList = new JList<>(taskListModel);
+    private JTextField taskField = new JTextField(20);
 
-Then completed ones
+    public TaskManagerGUI() {
+        super("Task Manager");
+        setLayout(new BorderLayout());
 
-Both sorted alphabetically
+        // Top Panel - Add Task
+        JPanel topPanel = new JPanel();
+        JButton addButton = new JButton("Add Task");
+        topPanel.add(taskField);
+        topPanel.add(addButton);
 
+        // Center Panel - Task List
+        taskJList.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        JScrollPane scrollPane = new JScrollPane(taskJList);
 
-###Programming Concepts Used
-OOP Principles:
+        // Bottom Panel - Action Buttons
+        JPanel bottomPanel = new JPanel();
+        JButton completeButton = new JButton("Mark as Completed");
+        JButton deleteButton = new JButton("Delete Task");
+        JButton sortButton = new JButton("Sort Tasks");
+        bottomPanel.add(completeButton);
+        bottomPanel.add(deleteButton);
+        bottomPanel.add(sortButton);
 
-Encapsulation: Task class holds data with getters/setters.
+        // Add Panels to Frame
+        add(topPanel, BorderLayout.NORTH);
+        add(scrollPane, BorderLayout.CENTER);
+        add(bottomPanel, BorderLayout.SOUTH);
 
-Inheritance: CompletedTask class extends Task.
+        // Event Handlers
+        addButton.addActionListener(e -> {
+            try {
+                String text = taskField.getText().trim();
+                if (text.isEmpty()) {
+                    throw new IllegalArgumentException("Task name cannot be empty!");
+                }
+                taskListModel.addElement(new Task(text)); // ➤ add task
+                taskField.setText("");
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Input Error", JOptionPane.ERROR_MESSAGE);
+            }
+        });
 
-Swing GUI Components:
+        completeButton.addActionListener(e -> {
+            try {
+                int index = taskJList.getSelectedIndex();
+                if (index == -1) {
+                    throw new Exception("No task selected to mark as completed.");
+                }
+                taskListModel.get(index).markCompleted(); // ➤ mark as completed
+                taskJList.repaint();
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Action Error", JOptionPane.WARNING_MESSAGE);
+            }
+        });
 
-JFrame, JPanel, JList, JScrollPane, JTextField, JButton
+        deleteButton.addActionListener(e -> {
+            try {
+                int index = taskJList.getSelectedIndex();
+                if (index == -1) {
+                    throw new Exception("No task selected to delete.");
+                }
+                taskListModel.remove(index); // ➤ delete task
+            } catch (Exception ex) {
+                JOptionPane.showMessageDialog(this, "Error: " + ex.getMessage(), "Action Error", JOptionPane.WARNING_MESSAGE);
+            }
+        });
 
-Event-Driven Programming:
+        sortButton.addActionListener(e -> {
+            // Run sort in a new thread to keep GUI responsive
+            new Thread(() -> {
+                try {
+                    sortTasks(); // ➤ sort task (Thread-safe call)
+                } catch (Exception ex) {
+                    SwingUtilities.invokeLater(() -> 
+                        JOptionPane.showMessageDialog(this, "Error during sorting: " + ex.getMessage(), "Sort Error", JOptionPane.ERROR_MESSAGE)
+                    );
+                }
+            }).start();
+        });
 
-Each button has an ActionListener that defines what happens when it’s clicked.
+        setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setSize(400, 300);
+        setVisible(true);
+    }
 
-Exception Handling:
+    // Method to sort tasks
+    private void sortTasks() {
+        ArrayList<Task> tasks = Collections.list(taskListModel.elements());
+        tasks.sort(Comparator.comparing(Task::isCompleted).thenComparing(Task::getName));
+        SwingUtilities.invokeLater(() -> {
+            taskListModel.clear();
+            for (Task task : tasks) {
+                taskListModel.addElement(task);
+            }
+        });
+    }
 
-Prevents crashes and shows user-friendly messages via JOptionPane.
-
-List Model Management:
-
-DefaultListModel<Task> is used to dynamically update the task list.
+    public static void main(String[] args) {
+        SwingUtilities.invokeLater(TaskManagerGUI::new);
+    }
+}
